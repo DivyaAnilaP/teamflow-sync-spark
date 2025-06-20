@@ -16,36 +16,52 @@ import { AIWrapUp } from '@/components/AIWrapUp';
 import { ProgressTracking } from '@/components/ProgressTracking';
 import { MeetingNotes } from '@/components/MeetingNotes';
 
-const Index = () => {
+interface IndexProps {
+  user: any;
+  workspace: any;
+  onLogout: () => void;
+  onLeaveWorkspace: () => void;
+}
+
+const Index: React.FC<IndexProps> = ({ user, workspace, onLogout, onLeaveWorkspace }) => {
   const [activeTab, setActiveTab] = useState('tasks');
   const [points, setPoints] = useState(1250);
-  const [userRole] = useState<'manager' | 'team-lead' | 'member'>('team-lead'); // Simulated user role
+  const [userRole] = useState<'manager' | 'team-lead' | 'member'>(
+    workspace.isOwner ? 'manager' : 'team-lead'
+  );
 
   const addPoints = (amount: number) => {
     setPoints(prev => prev + amount);
   };
 
   const handleAcceptSuggestion = (suggestion: any) => {
-    // Add suggested task to task board
     console.log('Adding suggested task:', suggestion);
-    addPoints(10); // Bonus points for accepting AI suggestions
+    addPoints(10);
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100">
       <div className="flex h-screen">
-        <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} points={points} />
+        <Sidebar 
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab} 
+          points={points}
+          user={user}
+          workspace={workspace}
+          onLogout={onLogout}
+          onLeaveWorkspace={onLeaveWorkspace}
+        />
         
         <main className="flex-1 flex flex-col overflow-hidden">
           {/* Header */}
           <header className="bg-white/80 backdrop-blur-sm border-b border-purple-100 p-4 flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-                TeamSync Pro
+                {workspace.name}
               </h1>
-              <p className="text-gray-600 text-sm">Advanced real-time collaboration platform</p>
+              <p className="text-gray-600 text-sm">{workspace.description}</p>
             </div>
-            <UserPresence />
+            <UserPresence currentUser={user} workspace={workspace} />
           </header>
 
           {/* Content Area */}
@@ -53,21 +69,21 @@ const Index = () => {
             <div className="flex-1 p-6 overflow-y-auto">
               {activeTab === 'tasks' && (
                 <div className="space-y-6">
-                  <TaskBoard onPointsEarned={addPoints} />
+                  <TaskBoard onPointsEarned={addPoints} user={user} workspace={workspace} />
                   <SmartTaskSuggestions onAcceptSuggestion={handleAcceptSuggestion} />
                 </div>
               )}
-              {activeTab === 'chat' && <ChatPanel onPointsEarned={addPoints} />}
-              {activeTab === 'files' && <FileSharing />}
-              {activeTab === 'gamification' && <Gamification points={points} />}
-              {activeTab === 'mood' && <MoodCheck />}
-              {activeTab === 'analytics' && <WorkHeatmap />}
-              {activeTab === 'code' && <CodeCollaboration />}
-              {activeTab === 'achievements' && <BadgesAndTitles />}
-              {activeTab === 'sprints' && <SprintManagement isManager={userRole === 'manager'} />}
-              {activeTab === 'ai-wrap' && <AIWrapUp />}
-              {activeTab === 'progress' && <ProgressTracking userRole={userRole} />}
-              {activeTab === 'meetings' && <MeetingNotes />}
+              {activeTab === 'chat' && <ChatPanel onPointsEarned={addPoints} user={user} workspace={workspace} />}
+              {activeTab === 'files' && <FileSharing user={user} workspace={workspace} />}
+              {activeTab === 'gamification' && <Gamification points={points} user={user} workspace={workspace} />}
+              {activeTab === 'mood' && <MoodCheck user={user} />}
+              {activeTab === 'analytics' && <WorkHeatmap user={user} />}
+              {activeTab === 'code' && <CodeCollaboration user={user} workspace={workspace} />}
+              {activeTab === 'achievements' && <BadgesAndTitles user={user} />}
+              {activeTab === 'sprints' && <SprintManagement isManager={userRole === 'manager'} user={user} workspace={workspace} />}
+              {activeTab === 'ai-wrap' && <AIWrapUp user={user} />}
+              {activeTab === 'progress' && <ProgressTracking userRole={userRole} user={user} workspace={workspace} />}
+              {activeTab === 'meetings' && <MeetingNotes user={user} workspace={workspace} />}
             </div>
           </div>
         </main>

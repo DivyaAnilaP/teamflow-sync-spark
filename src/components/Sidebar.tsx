@@ -12,17 +12,33 @@ import {
   Target, 
   Brain, 
   Shield, 
-  Mic 
+  Mic,
+  LogOut,
+  Building 
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   points: number;
+  user: any;
+  workspace: any;
+  onLogout: () => void;
+  onLeaveWorkspace: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, points }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ 
+  activeTab, 
+  setActiveTab, 
+  points, 
+  user, 
+  workspace, 
+  onLogout, 
+  onLeaveWorkspace 
+}) => {
   const menuItems = [
     { id: 'tasks', label: 'Task Board', icon: CheckSquare, category: 'core' },
     { id: 'chat', label: 'Team Chat', icon: MessageSquare, category: 'core' },
@@ -56,6 +72,52 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, point
 
   return (
     <aside className="w-72 bg-white/60 backdrop-blur-sm border-r border-purple-100 p-4 overflow-y-auto">
+      {/* User Info */}
+      <div className="mb-6 p-3 bg-gradient-to-r from-purple-100 to-blue-100 rounded-lg">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold">
+            {user.avatar}
+          </div>
+          <div className="flex-1">
+            <p className="font-medium text-purple-800">{user.name}</p>
+            <p className="text-xs text-purple-600">ID: {user.employeeId}</p>
+          </div>
+        </div>
+        <div className="flex gap-2 mt-3">
+          <Button 
+            size="sm" 
+            variant="outline" 
+            onClick={onLeaveWorkspace}
+            className="flex-1 text-xs"
+          >
+            <Building size={12} className="mr-1" />
+            Switch
+          </Button>
+          <Button 
+            size="sm" 
+            variant="outline" 
+            onClick={onLogout}
+            className="flex-1 text-xs"
+          >
+            <LogOut size={12} className="mr-1" />
+            Logout
+          </Button>
+        </div>
+      </div>
+
+      {/* Workspace Info */}
+      <div className="mb-6 p-3 bg-gradient-to-r from-green-100 to-teal-100 rounded-lg">
+        <div className="flex items-center gap-2 text-green-700 mb-2">
+          <Building size={16} />
+          <span className="font-semibold">Current Workspace</span>
+        </div>
+        <p className="text-sm font-medium text-green-800">{workspace.name}</p>
+        <div className="flex justify-between mt-2 text-xs text-green-600">
+          <span>Members: {workspace.memberCount}</span>
+          {workspace.isOwner && <Badge variant="secondary" className="text-xs">Owner</Badge>}
+        </div>
+      </div>
+
       <div className="space-y-6">
         {Object.entries(groupedItems).map(([category, items]) => (
           <div key={category}>
@@ -94,24 +156,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, point
         </div>
         <p className="text-2xl font-bold text-purple-800 mt-1">{points.toLocaleString()}</p>
         <p className="text-xs text-purple-600 mt-1">Keep collaborating to earn more!</p>
-      </div>
-
-      {/* Quick Stats */}
-      <div className="mt-4 p-3 bg-gradient-to-r from-green-100 to-teal-100 rounded-lg">
-        <div className="text-xs text-green-700 space-y-1">
-          <div className="flex justify-between">
-            <span>Tasks Today:</span>
-            <span className="font-bold">8</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Team Mood:</span>
-            <span className="font-bold">😊 Happy</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Sprint Progress:</span>
-            <span className="font-bold">76%</span>
-          </div>
-        </div>
       </div>
     </aside>
   );
