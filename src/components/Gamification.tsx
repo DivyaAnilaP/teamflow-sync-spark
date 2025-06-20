@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Trophy, Star, Target, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,6 +5,8 @@ import { Badge } from '@/components/ui/badge';
 
 interface GamificationProps {
   points: number;
+  user: any;
+  workspace: any;
 }
 
 interface LeaderboardEntry {
@@ -26,7 +27,7 @@ interface Achievement {
   maxProgress?: number;
 }
 
-export const Gamification: React.FC<GamificationProps> = ({ points }) => {
+export const Gamification: React.FC<GamificationProps> = ({ points, user, workspace }) => {
   const leaderboard: LeaderboardEntry[] = [
     {
       rank: 1,

@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Paperclip, Smile } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -16,9 +15,11 @@ interface Message {
 
 interface ChatPanelProps {
   onPointsEarned: (points: number) => void;
+  user: any;
+  workspace: any;
 }
 
-export const ChatPanel: React.FC<ChatPanelProps> = ({ onPointsEarned }) => {
+export const ChatPanel: React.FC<ChatPanelProps> = ({ onPointsEarned, user, workspace }) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',

@@ -9,7 +9,12 @@ interface User {
   lastSeen?: Date;
 }
 
-export const UserPresence: React.FC = () => {
+interface UserPresenceProps {
+  currentUser: any;
+  workspace: any;
+}
+
+export const UserPresence: React.FC<UserPresenceProps> = ({ currentUser, workspace }) => {
   const users: User[] = [
     {
       id: '1',

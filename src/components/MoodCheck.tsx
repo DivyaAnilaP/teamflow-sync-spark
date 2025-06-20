@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,7 +14,11 @@ interface MoodEntry {
   note?: string;
 }
 
-export const MoodCheck: React.FC = () => {
+interface MoodCheckProps {
+  user: any;
+}
+
+export const MoodCheck: React.FC<MoodCheckProps> = ({ user }) => {
   const [currentMood, setCurrentMood] = useState<string>('');
   const [energy, setEnergy] = useState<number>(5);
   const [stress, setStress] = useState<number>(3);
