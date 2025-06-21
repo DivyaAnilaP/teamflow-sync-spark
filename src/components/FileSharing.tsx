@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Upload, Download, File, Image, FileText, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -15,7 +14,12 @@ interface SharedFile {
   downloadCount: number;
 }
 
-export const FileSharing: React.FC = () => {
+interface FileSharingProps {
+  user: any;
+  workspace: any;
+}
+
+export const FileSharing: React.FC<FileSharingProps> = ({ user, workspace }) => {
   const [files, setFiles] = useState<SharedFile[]>([
     {
       id: '1',
@@ -67,7 +71,7 @@ export const FileSharing: React.FC = () => {
         name: file.name,
         type: file.type.startsWith('image/') ? 'image' : 'document',
         size: (file.size / 1024 / 1024).toFixed(1) + ' MB',
-        uploadedBy: 'You',
+        uploadedBy: user.name,
         uploadDate: new Date(),
         downloadCount: 0
       };
@@ -106,7 +110,7 @@ export const FileSharing: React.FC = () => {
   return (
     <div className="h-full">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-3xl font-bold text-gray-800">File Sharing</h2>
+        <h2 className="text-3xl font-bold text-gray-800">File Sharing - {workspace.name}</h2>
         <div>
           <input
             type="file"
