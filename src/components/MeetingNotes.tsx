@@ -1,23 +1,25 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Video, Mic, MicOff, VideoOff, Phone, Mail, Users, Calendar } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Meeting {
   id: string;
   title: string;
-  participants: string[];
-  participantEmails: string[];
-  date: string;
-  time: string;
+  participant_emails: string[];
+  meeting_date: string;
+  meeting_time: string;
   duration: number;
   type: 'video' | 'audio';
   status: 'scheduled' | 'ongoing' | 'completed';
   notes?: string;
   recordings?: string[];
+  workspace_id: string;
+  created_by: string;
 }
 
 interface MeetingNotesProps {
@@ -26,27 +28,14 @@ interface MeetingNotesProps {
 }
 
 export const MeetingNotes: React.FC<MeetingNotesProps> = ({ user, workspace }) => {
-  const [meetings, setMeetings] = useState<Meeting[]>([
-    {
-      id: '1',
-      title: 'Project Kickoff',
-      participants: ['John Doe', 'Jane Smith'],
-      participantEmails: ['john@company.com', 'jane@company.com'],
-      date: '2024-12-22',
-      time: '14:00',
-      duration: 60,
-      type: 'video',
-      status: 'completed',
-      notes: 'Discussed project timeline and deliverables. Assigned initial tasks.',
-      recordings: ['recording_1.mp4']
-    }
-  ]);
-
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [showNewMeetingForm, setShowNewMeetingForm] = useState(false);
   const [isInCall, setIsInCall] = useState(false);
   const [callType, setCallType] = useState<'video' | 'audio'>('video');
   const [isMicOn, setIsMicOn] = useState(true);
   const [isVideoOn, setIsVideoOn] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [currentMeeting, setCurrentMeeting] = useState<Meeting | null>(null);
 
   const [newMeeting, setNewMeeting] = useState({
     title: '',
@@ -57,7 +46,72 @@ export const MeetingNotes: React.FC<MeetingNotesProps> = ({ user, workspace }) =
     type: 'video' as 'video' | 'audio'
   });
 
-  const scheduleMeeting = () => {
+  useEffect(() => {
+    fetchMeetings();
+  }, [workspace]);
+
+  const fetchMeetings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('meetings')
+        .select('*')
+        .eq('workspace_id', workspace.name)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setMeetings(data || []);
+    } catch (error) {
+      console.error('Error fetching meetings:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load meetings",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const sendMeetingInvites = async (meeting: Meeting) => {
+    try {
+      for (const email of meeting.participant_emails) {
+        const { error } = await supabase.functions.invoke('send-email', {
+          body: {
+            to: email,
+            subject: `Meeting Invitation: ${meeting.title}`,
+            html: `
+              <h2>You're invited to a meeting!</h2>
+              <h3>${meeting.title}</h3>
+              <p><strong>Date:</strong> ${meeting.meeting_date}</p>
+              <p><strong>Time:</strong> ${meeting.meeting_time}</p>
+              <p><strong>Duration:</strong> ${meeting.duration} minutes</p>
+              <p><strong>Type:</strong> ${meeting.type} call</p>
+              <p><strong>Workspace:</strong> ${workspace.name}</p>
+              <br>
+              <p>Join the meeting when it's time!</p>
+              <p>Best regards,<br>TeamFlow Team</p>
+            `
+          }
+        });
+
+        if (error) throw error;
+      }
+
+      toast({
+        title: "Meeting Scheduled! 📅",
+        description: `Meeting invites sent to ${meeting.participant_emails.length} participants`,
+      });
+    } catch (error) {
+      console.error('Error sending meeting invites:', error);
+      toast({
+        title: "Email Error",
+        description: "Failed to send meeting invitations",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const scheduleMeeting = async () => {
     if (!newMeeting.title || !newMeeting.participantEmails) {
       toast({
         title: "Error",
@@ -68,67 +122,111 @@ export const MeetingNotes: React.FC<MeetingNotesProps> = ({ user, workspace }) =
     }
 
     const emails = newMeeting.participantEmails.split(',').map(email => email.trim());
-    const meeting: Meeting = {
-      id: Date.now().toString(),
-      title: newMeeting.title,
-      participants: emails.map(email => email.split('@')[0]),
-      participantEmails: emails,
-      date: newMeeting.date,
-      time: newMeeting.time,
-      duration: newMeeting.duration,
-      type: newMeeting.type,
-      status: 'scheduled'
-    };
 
-    setMeetings(prev => [...prev, meeting]);
+    try {
+      const { data, error } = await supabase
+        .from('meetings')
+        .insert({
+          title: newMeeting.title,
+          participant_emails: emails,
+          meeting_date: newMeeting.date,
+          meeting_time: newMeeting.time,
+          duration: newMeeting.duration,
+          type: newMeeting.type,
+          workspace_id: workspace.name,
+          created_by: user.name,
+          status: 'scheduled'
+        })
+        .select()
+        .single();
 
-    // Send email invitations
-    sendMeetingInvites(meeting);
+      if (error) throw error;
 
-    setNewMeeting({
-      title: '',
-      participantEmails: '',
-      date: '',
-      time: '',
-      duration: 30,
-      type: 'video'
-    });
-    setShowNewMeetingForm(false);
+      setMeetings(prev => [data, ...prev]);
 
-    toast({
-      title: "Meeting Scheduled! 📅",
-      description: `Meeting invites sent to ${emails.length} participants`,
-    });
+      // Send email invitations
+      await sendMeetingInvites(data);
+
+      setNewMeeting({
+        title: '',
+        participantEmails: '',
+        date: '',
+        time: '',
+        duration: 30,
+        type: 'video'
+      });
+      setShowNewMeetingForm(false);
+    } catch (error) {
+      console.error('Error creating meeting:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create meeting",
+        variant: "destructive"
+      });
+    }
   };
 
-  const sendMeetingInvites = (meeting: Meeting) => {
-    // Mock email sending
-    console.log('Sending meeting invites:', {
-      title: meeting.title,
-      emails: meeting.participantEmails,
-      meetingLink: `https://${workspace.name}.meet.lovable.app/room/${meeting.id}`,
-      date: meeting.date,
-      time: meeting.time,
-      type: meeting.type
-    });
-  };
-
-  const startCall = (meeting: Meeting) => {
+  const startCall = async (meeting: Meeting) => {
     setIsInCall(true);
     setCallType(meeting.type);
-    toast({
-      title: `${meeting.type === 'video' ? 'Video' : 'Audio'} Call Started`,
-      description: "AI is recording notes automatically",
-    });
+    setCurrentMeeting(meeting);
+
+    try {
+      const { error } = await supabase
+        .from('meetings')
+        .update({ status: 'ongoing' })
+        .eq('id', meeting.id);
+
+      if (error) throw error;
+
+      setMeetings(prev => prev.map(m => 
+        m.id === meeting.id ? { ...m, status: 'ongoing' } : m
+      ));
+
+      toast({
+        title: `${meeting.type === 'video' ? 'Video' : 'Audio'} Call Started`,
+        description: "AI is recording notes automatically",
+      });
+    } catch (error) {
+      console.error('Error starting call:', error);
+    }
   };
 
-  const endCall = () => {
-    setIsInCall(false);
-    toast({
-      title: "Call Ended",
-      description: "Meeting notes have been generated by AI",
-    });
+  const endCall = async () => {
+    if (!currentMeeting) return;
+
+    try {
+      const { error } = await supabase
+        .from('meetings')
+        .update({ 
+          status: 'completed',
+          notes: 'AI Generated Notes: Meeting completed successfully. Participants discussed project progress and next steps.'
+        })
+        .eq('id', currentMeeting.id);
+
+      if (error) throw error;
+
+      setMeetings(prev => prev.map(m => 
+        m.id === currentMeeting.id 
+          ? { ...m, status: 'completed', notes: 'AI Generated Notes: Meeting completed successfully. Participants discussed project progress and next steps.' }
+          : m
+      ));
+
+      setIsInCall(false);
+      setCurrentMeeting(null);
+      
+      toast({
+        title: "Call Ended",
+        description: "Meeting notes have been generated by AI",
+      });
+    } catch (error) {
+      console.error('Error ending call:', error);
+    }
   };
+
+  if (loading) {
+    return <div className="flex justify-center items-center h-64">Loading meetings...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -145,14 +243,16 @@ export const MeetingNotes: React.FC<MeetingNotesProps> = ({ user, workspace }) =
                 <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
                   <div className="bg-gray-800 rounded-lg aspect-video flex items-center justify-center text-white">
                     <div className="text-center">
-                      <Video size={24} className="mx-auto mb-2" />
+                      {isVideoOn ? <Video size={24} className="mx-auto mb-2" /> : <VideoOff size={24} className="mx-auto mb-2" />}
                       <p className="text-sm">Your Video</p>
+                      <p className="text-xs mt-1">{isVideoOn ? 'Camera On' : 'Camera Off'}</p>
                     </div>
                   </div>
                   <div className="bg-gray-700 rounded-lg aspect-video flex items-center justify-center text-white">
                     <div className="text-center">
                       <Users size={24} className="mx-auto mb-2" />
-                      <p className="text-sm">Participant</p>
+                      <p className="text-sm">Participants</p>
+                      <p className="text-xs mt-1">Waiting to join...</p>
                     </div>
                   </div>
                 </div>
@@ -184,6 +284,9 @@ export const MeetingNotes: React.FC<MeetingNotesProps> = ({ user, workspace }) =
               </div>
               
               <Badge className="bg-red-500">🔴 AI Recording Notes</Badge>
+              <p className="text-sm text-green-700">
+                Note: This is a demo interface. In a real implementation, you would integrate with video calling services like Zoom, Google Meet, or WebRTC.
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -288,7 +391,7 @@ export const MeetingNotes: React.FC<MeetingNotesProps> = ({ user, workspace }) =
                   <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
                     <span className="flex items-center gap-1">
                       <Calendar size={14} />
-                      {meeting.date} at {meeting.time}
+                      {meeting.meeting_date} at {meeting.meeting_time}
                     </span>
                     <span className="flex items-center gap-1">
                       {meeting.type === 'video' ? <Video size={14} /> : <Mic size={14} />}
@@ -311,15 +414,10 @@ export const MeetingNotes: React.FC<MeetingNotesProps> = ({ user, workspace }) =
                 </div>
               </div>
               
-              <div className="flex items-center gap-2 text-sm">
-                <Users size={14} />
-                <span>Participants: {meeting.participants.join(', ')}</span>
-              </div>
-              
-              {meeting.participantEmails.length > 0 && (
+              {meeting.participant_emails.length > 0 && (
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <Mail size={14} />
-                  <span>Invited: {meeting.participantEmails.join(', ')}</span>
+                  <span>Invited: {meeting.participant_emails.join(', ')}</span>
                 </div>
               )}
               

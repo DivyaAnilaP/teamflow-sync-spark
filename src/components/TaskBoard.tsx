@@ -1,21 +1,24 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Calendar, User, CheckCircle, Clock, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Task {
   id: string;
   title: string;
   description: string;
   assignee: string;
-  assigneeEmail: string;
-  dueDate: string;
-  dueTime: string;
+  assignee_email: string;
+  due_date: string;
+  due_time: string;
   status: 'todo' | 'inprogress' | 'done';
   points: number;
+  workspace_id: string;
+  created_by: string;
 }
 
 interface TaskBoardProps {
@@ -25,50 +28,16 @@ interface TaskBoardProps {
 }
 
 export const TaskBoard: React.FC<TaskBoardProps> = ({ onPointsEarned, user, workspace }) => {
-  const [tasks, setTasks] = useState<Task[]>([
-    {
-      id: '1',
-      title: 'Design new landing page',
-      description: 'Create mockups for the new product landing page',
-      assignee: 'Sarah Chen',
-      assigneeEmail: 'sarah@company.com',
-      dueDate: '2024-12-25',
-      dueTime: '14:00',
-      status: 'inprogress',
-      points: 50
-    },
-    {
-      id: '2',
-      title: 'Implement user authentication',
-      description: 'Set up login and registration functionality',
-      assignee: 'Mike Johnson',
-      assigneeEmail: 'mike@company.com',
-      dueDate: '2024-12-22',
-      dueTime: '16:30',
-      status: 'todo',
-      points: 75
-    },
-    {
-      id: '3',
-      title: 'Write API documentation',
-      description: 'Document all endpoints for the REST API',
-      assignee: 'Alex Rodriguez',
-      assigneeEmail: 'alex@company.com',
-      dueDate: '2024-12-20',
-      dueTime: '10:00',
-      status: 'done',
-      points: 40
-    }
-  ]);
-
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [showNewTaskForm, setShowNewTaskForm] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
     assignee: '',
-    assigneeEmail: '',
-    dueDate: '',
-    dueTime: '',
+    assignee_email: '',
+    due_date: '',
+    due_time: '',
     points: 25
   });
 
@@ -78,41 +47,101 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ onPointsEarned, user, work
     { id: 'done', title: 'Done', color: 'bg-green-100 border-green-200' }
   ];
 
-  const moveTask = (taskId: string, newStatus: 'todo' | 'inprogress' | 'done') => {
-    setTasks(prev => prev.map(task => {
-      if (task.id === taskId) {
-        const updatedTask = { ...task, status: newStatus };
-        if (newStatus === 'done' && task.status !== 'done') {
-          onPointsEarned(task.points);
-          toast({
-            title: "Task Completed! 🎉",
-            description: `You earned ${task.points} points for completing "${task.title}"`,
-          });
+  useEffect(() => {
+    fetchTasks();
+  }, [workspace]);
+
+  const fetchTasks = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('workspace_id', workspace.name)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setTasks(data || []);
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load tasks",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const sendTaskEmail = async (task: Task) => {
+    try {
+      const { error } = await supabase.functions.invoke('send-email', {
+        body: {
+          to: task.assignee_email,
+          subject: `New Task Assigned: ${task.title}`,
+          html: `
+            <h2>You have been assigned a new task!</h2>
+            <h3>${task.title}</h3>
+            <p><strong>Description:</strong> ${task.description}</p>
+            <p><strong>Due Date:</strong> ${task.due_date} at ${task.due_time}</p>
+            <p><strong>Points:</strong> ${task.points}</p>
+            <p><strong>Workspace:</strong> ${workspace.name}</p>
+            <br>
+            <p>Best regards,<br>TeamFlow Team</p>
+          `
         }
-        return updatedTask;
-      }
-      return task;
-    }));
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Email Sent! 📧",
+        description: `Task notification sent to ${task.assignee_email}`,
+      });
+    } catch (error) {
+      console.error('Error sending email:', error);
+      toast({
+        title: "Email Error",
+        description: "Failed to send task notification email",
+        variant: "destructive"
+      });
+    }
   };
 
-  const sendTaskEmail = (task: Task) => {
-    // Mock email sending - in real app this would call your backend
-    console.log('Sending task email to:', task.assigneeEmail);
-    console.log('Task details:', {
-      title: task.title,
-      description: task.description,
-      dueDate: task.dueDate,
-      dueTime: task.dueTime,
-      workspace: workspace.name
-    });
-    
-    toast({
-      title: "Email Sent! 📧",
-      description: `Task notification sent to ${task.assigneeEmail}`,
-    });
+  const moveTask = async (taskId: string, newStatus: 'todo' | 'inprogress' | 'done') => {
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ status: newStatus })
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      setTasks(prev => prev.map(task => {
+        if (task.id === taskId) {
+          const updatedTask = { ...task, status: newStatus };
+          if (newStatus === 'done' && task.status !== 'done') {
+            onPointsEarned(task.points);
+            toast({
+              title: "Task Completed! 🎉",
+              description: `You earned ${task.points} points for completing "${task.title}"`,
+            });
+          }
+          return updatedTask;
+        }
+        return task;
+      }));
+    } catch (error) {
+      console.error('Error updating task:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update task status",
+        variant: "destructive"
+      });
+    }
   };
 
-  const addTask = () => {
+  const addTask = async () => {
     if (!newTask.title.trim()) {
       toast({
         title: "Error",
@@ -122,41 +151,61 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ onPointsEarned, user, work
       return;
     }
     
-    const task: Task = {
-      id: Date.now().toString(),
-      title: newTask.title,
-      description: newTask.description,
-      assignee: newTask.assignee,
-      assigneeEmail: newTask.assigneeEmail,
-      dueDate: newTask.dueDate,
-      dueTime: newTask.dueTime,
-      status: 'todo',
-      points: newTask.points
-    };
-    
-    setTasks(prev => [...prev, task]);
-    
-    // Send email if assignee email is provided
-    if (newTask.assigneeEmail) {
-      sendTaskEmail(task);
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .insert({
+          title: newTask.title,
+          description: newTask.description,
+          assignee: newTask.assignee,
+          assignee_email: newTask.assignee_email,
+          due_date: newTask.due_date,
+          due_time: newTask.due_time,
+          points: newTask.points,
+          workspace_id: workspace.name,
+          created_by: user.name,
+          status: 'todo'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setTasks(prev => [data, ...prev]);
+      
+      // Send email if assignee email is provided
+      if (newTask.assignee_email && data) {
+        await sendTaskEmail(data);
+      }
+      
+      setNewTask({ 
+        title: '', 
+        description: '', 
+        assignee: '', 
+        assignee_email: '', 
+        due_date: '', 
+        due_time: '', 
+        points: 25 
+      });
+      setShowNewTaskForm(false);
+      
+      toast({
+        title: "Task Created!",
+        description: "New task has been added to the board",
+      });
+    } catch (error) {
+      console.error('Error creating task:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create task",
+        variant: "destructive"
+      });
     }
-    
-    setNewTask({ 
-      title: '', 
-      description: '', 
-      assignee: '', 
-      assigneeEmail: '', 
-      dueDate: '', 
-      dueTime: '', 
-      points: 25 
-    });
-    setShowNewTaskForm(false);
-    
-    toast({
-      title: "Task Created!",
-      description: "New task has been added to the board",
-    });
   };
+
+  if (loading) {
+    return <div className="flex justify-center items-center h-64">Loading tasks...</div>;
+  }
 
   return (
     <div className="h-full">
@@ -201,22 +250,22 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ onPointsEarned, user, work
               <input
                 type="email"
                 placeholder="Assignee email (for notifications)"
-                value={newTask.assigneeEmail}
-                onChange={(e) => setNewTask(prev => ({ ...prev, assigneeEmail: e.target.value }))}
+                value={newTask.assignee_email}
+                onChange={(e) => setNewTask(prev => ({ ...prev, assignee_email: e.target.value }))}
                 className="p-2 border border-gray-300 rounded-md"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <input
                 type="date"
-                value={newTask.dueDate}
-                onChange={(e) => setNewTask(prev => ({ ...prev, dueDate: e.target.value }))}
+                value={newTask.due_date}
+                onChange={(e) => setNewTask(prev => ({ ...prev, due_date: e.target.value }))}
                 className="p-2 border border-gray-300 rounded-md"
               />
               <input
                 type="time"
-                value={newTask.dueTime}
-                onChange={(e) => setNewTask(prev => ({ ...prev, dueTime: e.target.value }))}
+                value={newTask.due_time}
+                onChange={(e) => setNewTask(prev => ({ ...prev, due_time: e.target.value }))}
                 className="p-2 border border-gray-300 rounded-md"
               />
             </div>
@@ -266,20 +315,20 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ onPointsEarned, user, work
                           <User size={14} />
                           {task.assignee}
                         </div>
-                        {task.assigneeEmail && (
+                        {task.assignee_email && (
                           <div className="flex items-center gap-2 text-sm text-gray-500">
                             <Mail size={14} />
-                            {task.assigneeEmail}
+                            {task.assignee_email}
                           </div>
                         )}
                         <div className="flex items-center gap-2 text-sm text-gray-500">
                           <Calendar size={14} />
-                          {new Date(task.dueDate).toLocaleDateString()}
+                          {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No due date'}
                         </div>
-                        {task.dueTime && (
+                        {task.due_time && (
                           <div className="flex items-center gap-2 text-sm text-gray-500">
                             <Clock size={14} />
-                            {task.dueTime}
+                            {task.due_time}
                           </div>
                         )}
                         <Badge variant="secondary">{task.points} points</Badge>

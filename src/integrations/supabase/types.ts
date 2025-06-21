@@ -9,7 +9,105 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      meetings: {
+        Row: {
+          created_at: string
+          created_by: string
+          duration: number | null
+          id: string
+          meeting_date: string
+          meeting_time: string
+          notes: string | null
+          participant_emails: string[] | null
+          recordings: string[] | null
+          status: string | null
+          title: string
+          type: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          duration?: number | null
+          id?: string
+          meeting_date: string
+          meeting_time: string
+          notes?: string | null
+          participant_emails?: string[] | null
+          recordings?: string[] | null
+          status?: string | null
+          title: string
+          type?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          duration?: number | null
+          id?: string
+          meeting_date?: string
+          meeting_time?: string
+          notes?: string | null
+          participant_emails?: string[] | null
+          recordings?: string[] | null
+          status?: string | null
+          title?: string
+          type?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: []
+      }
+      tasks: {
+        Row: {
+          assignee: string | null
+          assignee_email: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          due_date: string | null
+          due_time: string | null
+          id: string
+          points: number | null
+          status: string | null
+          title: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          assignee?: string | null
+          assignee_email?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          due_date?: string | null
+          due_time?: string | null
+          id?: string
+          points?: number | null
+          status?: string | null
+          title: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          assignee?: string | null
+          assignee_email?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          due_date?: string | null
+          due_time?: string | null
+          id?: string
+          points?: number | null
+          status?: string | null
+          title?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
