@@ -21,10 +21,14 @@ interface TeamMember {
 
 interface ProgressTrackingProps {
   userRole?: 'manager' | 'team-lead' | 'member';
+  user: any;
+  workspace: any;
 }
 
 export const ProgressTracking: React.FC<ProgressTrackingProps> = ({ 
-  userRole = 'member' 
+  userRole = 'member',
+  user,
+  workspace 
 }) => {
   const [selectedMember, setSelectedMember] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'overview' | 'detailed'>('overview');
@@ -117,7 +121,7 @@ export const ProgressTracking: React.FC<ProgressTrackingProps> = ({
             Only managers and team leads can view team progress tracking.
           </p>
           <p className="text-sm text-gray-400 mt-2">
-            Current role: {userRole}
+            Current role: {userRole} in {workspace.name}
           </p>
         </CardContent>
       </Card>
@@ -132,7 +136,7 @@ export const ProgressTracking: React.FC<ProgressTrackingProps> = ({
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="text-blue-500" size={24} />
-              Team Progress Tracking
+              Team Progress Tracking - {workspace.name}
             </CardTitle>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="bg-blue-50 text-blue-600">

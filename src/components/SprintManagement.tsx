@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,9 +23,15 @@ interface Sprint {
 
 interface SprintManagementProps {
   isManager?: boolean;
+  user: any;
+  workspace: any;
 }
 
-export const SprintManagement: React.FC<SprintManagementProps> = ({ isManager = false }) => {
+export const SprintManagement: React.FC<SprintManagementProps> = ({ 
+  isManager = false,
+  user,
+  workspace 
+}) => {
   const [activeSprint, setActiveSprint] = useState<Sprint>({
     id: '1',
     name: 'Sprint 24.1 - Q1 Features',
@@ -126,7 +131,7 @@ export const SprintManagement: React.FC<SprintManagementProps> = ({ isManager = 
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Target className="text-blue-500" size={24} />
-              Current Sprint
+              Current Sprint - {workspace.name}
             </CardTitle>
             <div className="flex items-center gap-2">
               <Badge className={getStatusColor(activeSprint.status)}>
