@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { TaskBoard } from '@/components/TaskBoard';
@@ -79,9 +78,9 @@ const Index: React.FC<IndexProps> = ({ user, workspace, onLogout, onLeaveWorkspa
               {activeTab === 'mood' && <MoodCheck user={user} />}
               {activeTab === 'analytics' && <WorkHeatmap user={user} />}
               {activeTab === 'code' && <CodeCollaboration user={user} workspace={workspace} />}
-              {activeTab === 'achievements' && <BadgesAndTitles user={user} />}
+              {activeTab === 'achievements' && <BadgesAndTitles />}
               {activeTab === 'sprints' && <SprintManagement isManager={userRole === 'manager'} user={user} workspace={workspace} />}
-              {activeTab === 'ai-wrap' && <AIWrapUp user={user} />}
+              {activeTab === 'ai-wrap' && <AIWrapUp />}
               {activeTab === 'progress' && <ProgressTracking userRole={userRole} user={user} workspace={workspace} />}
               {activeTab === 'meetings' && <MeetingNotes user={user} workspace={workspace} />}
             </div>
