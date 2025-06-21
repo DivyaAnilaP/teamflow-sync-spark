@@ -13,42 +13,54 @@ interface HeatmapData {
 }
 
 interface WorkHeatmapProps {
-  userId?: string;
-  userName?: string;
+  user: any;
 }
 
-export const WorkHeatmap: React.FC<WorkHeatmapProps> = ({ 
-  userId = 'current-user', 
-  userName = 'Your' 
-}) => {
+export const WorkHeatmap: React.FC<WorkHeatmapProps> = ({ user }) => {
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'quarter'>('month');
   
-  // Generate sample heatmap data
-  const generateHeatmapData = (): HeatmapData[] => {
+  // Generate different heatmap data based on period
+  const generateHeatmapData = (period: 'week' | 'month' | 'quarter'): HeatmapData[] => {
     const data: HeatmapData[] = [];
     const today = new Date();
     
-    for (let i = 30; i >= 0; i--) {
+    let daysToGenerate = 30; // month
+    if (period === 'week') daysToGenerate = 7;
+    if (period === 'quarter') daysToGenerate = 90;
+    
+    for (let i = daysToGenerate; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
       
-      // Simulate realistic work patterns
+      // Different activity patterns for different periods
       const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-      const baseActivity = isWeekend ? 0.2 : 1;
+      let baseActivity = isWeekend ? 0.2 : 1;
+      
+      // Vary activity based on period
+      if (period === 'week') {
+        baseActivity *= 1.5; // Higher activity for recent week
+      } else if (period === 'quarter') {
+        baseActivity *= 0.7; // Lower average for quarter view
+      }
       
       data.push({
         date: date.toISOString().split('T')[0],
-        tasksCompleted: Math.floor(Math.random() * 8 * baseActivity),
-        hoursWorked: Math.floor(Math.random() * 8 * baseActivity),
-        linesOfCode: Math.floor(Math.random() * 500 * baseActivity),
-        meetings: Math.floor(Math.random() * 4 * baseActivity)
+        tasksCompleted: Math.floor(Math.random() * 10 * baseActivity),
+        hoursWorked: Math.floor(Math.random() * 9 * baseActivity),
+        linesOfCode: Math.floor(Math.random() * 600 * baseActivity),
+        meetings: Math.floor(Math.random() * 5 * baseActivity)
       });
     }
     
     return data;
   };
 
-  const [heatmapData] = useState<HeatmapData[]>(generateHeatmapData());
+  const [heatmapData, setHeatmapData] = useState<HeatmapData[]>(generateHeatmapData('month'));
+
+  const handlePeriodChange = (period: 'week' | 'month' | 'quarter') => {
+    setSelectedPeriod(period);
+    setHeatmapData(generateHeatmapData(period));
+  };
 
   const getIntensityColor = (value: number, max: number) => {
     const intensity = value / max;
@@ -70,6 +82,18 @@ export const WorkHeatmap: React.FC<WorkHeatmapProps> = ({
     activeDays: heatmapData.filter(day => day.tasksCompleted > 0).length
   };
 
+  const getGridCols = () => {
+    if (selectedPeriod === 'week') return 'grid-cols-7';
+    if (selectedPeriod === 'month') return 'grid-cols-7';
+    return 'grid-cols-13'; // quarter view
+  };
+
+  const getDisplayData = () => {
+    if (selectedPeriod === 'week') return heatmapData.slice(-7);
+    if (selectedPeriod === 'month') return heatmapData.slice(-28);
+    return heatmapData.slice(-91);
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -77,17 +101,17 @@ export const WorkHeatmap: React.FC<WorkHeatmapProps> = ({
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Activity className="text-green-500" size={24} />
-              {userName} Work Activity Heatmap
+              {user?.name || 'Your'} Work Activity - {selectedPeriod.charAt(0).toUpperCase() + selectedPeriod.slice(1)} View
             </CardTitle>
             <div className="flex gap-2">
               {(['week', 'month', 'quarter'] as const).map(period => (
                 <button
                   key={period}
-                  onClick={() => setSelectedPeriod(period)}
-                  className={`px-3 py-1 rounded text-sm ${
+                  onClick={() => handlePeriodChange(period)}
+                  className={`px-3 py-1 rounded text-sm transition-colors ${
                     selectedPeriod === period 
                       ? 'bg-purple-500 text-white' 
-                      : 'bg-gray-200 text-gray-600'
+                      : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
                   }`}
                 >
                   {period.charAt(0).toUpperCase() + period.slice(1)}
@@ -101,17 +125,21 @@ export const WorkHeatmap: React.FC<WorkHeatmapProps> = ({
           <div className="mb-6">
             <h4 className="font-medium mb-3 flex items-center gap-2">
               <Target size={16} />
-              Task Completion Heatmap
+              Task Completion Heatmap ({selectedPeriod})
             </h4>
-            <div className="grid grid-cols-7 gap-1 mb-4">
-              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                <div key={day} className="text-xs text-gray-500 text-center p-1">
-                  {day}
-                </div>
-              ))}
-            </div>
-            <div className="grid grid-cols-7 gap-1">
-              {heatmapData.slice(-28).map((day, index) => (
+            
+            {selectedPeriod !== 'quarter' && (
+              <div className="grid grid-cols-7 gap-1 mb-4">
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                  <div key={day} className="text-xs text-gray-500 text-center p-1">
+                    {day}
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            <div className={`${getGridCols()} gap-1 grid`}>
+              {getDisplayData().map((day, index) => (
                 <div
                   key={day.date}
                   className={`w-8 h-8 rounded ${getIntensityColor(day.tasksCompleted, maxTasks)} 
@@ -123,6 +151,7 @@ export const WorkHeatmap: React.FC<WorkHeatmapProps> = ({
                 </div>
               ))}
             </div>
+            
             <div className="flex items-center gap-2 mt-3 text-xs text-gray-500">
               <span>Less</span>
               <div className="flex gap-1">

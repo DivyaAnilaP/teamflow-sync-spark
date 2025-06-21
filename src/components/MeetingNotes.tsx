@@ -3,366 +3,340 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Video, Mic, Square, Play, Brain, FileText, Download, Calendar, Users } from 'lucide-react';
+import { Video, Mic, MicOff, VideoOff, Phone, Mail, Users, Calendar } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
 
-interface MeetingNote {
+interface Meeting {
   id: string;
   title: string;
-  date: Date;
-  duration: number;
   participants: string[];
+  participantEmails: string[];
+  date: string;
+  time: string;
+  duration: number;
   type: 'video' | 'audio';
-  status: 'recording' | 'processing' | 'completed';
-  transcript?: string;
-  summary?: string;
-  actionItems?: string[];
-  keyPoints?: string[];
+  status: 'scheduled' | 'ongoing' | 'completed';
+  notes?: string;
+  recordings?: string[];
 }
 
-export const MeetingNotes: React.FC = () => {
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
-  const [currentMeeting, setCurrentMeeting] = useState<Partial<MeetingNote>>({
-    title: '',
-    participants: ['You'],
-    type: 'video'
-  });
+interface MeetingNotesProps {
+  user: any;
+  workspace: any;
+}
 
-  const [previousMeetings, setPreviousMeetings] = useState<MeetingNote[]>([
+export const MeetingNotes: React.FC<MeetingNotesProps> = ({ user, workspace }) => {
+  const [meetings, setMeetings] = useState<Meeting[]>([
     {
       id: '1',
-      title: 'Sprint Planning Q1 2024',
-      date: new Date(Date.now() - 86400000),
-      duration: 45,
-      participants: ['Sarah Chen', 'Mike Johnson', 'Alex Rodriguez', 'You'],
+      title: 'Project Kickoff',
+      participants: ['John Doe', 'Jane Smith'],
+      participantEmails: ['john@company.com', 'jane@company.com'],
+      date: '2024-12-22',
+      time: '14:00',
+      duration: 60,
       type: 'video',
       status: 'completed',
-      summary: 'Discussed Q1 objectives, assigned tasks for the upcoming sprint, and reviewed team capacity. Decided to focus on user authentication and dashboard improvements.',
-      keyPoints: [
-        'Q1 goals: User auth, dashboard, mobile optimization',
-        'Sprint duration: 2 weeks',
-        'Team capacity: 85% due to holiday schedules',
-        'Priority: Security features first'
-      ],
-      actionItems: [
-        'Sarah: Design user authentication flow',
-        'Mike: Set up OAuth integration',
-        'Alex: Create mobile wireframes',
-        'Team: Review security requirements'
-      ]
-    },
-    {
-      id: '2',
-      title: 'Daily Standup',
-      date: new Date(Date.now() - 3600000),
-      duration: 15,
-      participants: ['Sarah Chen', 'Mike Johnson', 'You'],
-      type: 'audio',
-      status: 'completed',
-      summary: 'Quick sync on current progress. Sarah completed the login component, Mike is working on API integration, and discussing blocker with database connection.',
-      keyPoints: [
-        'Login component: Completed',
-        'API integration: In progress',
-        'Database issue: Needs attention'
-      ],
-      actionItems: [
-        'Mike: Contact DevOps for database access',
-        'Sarah: Start on password reset flow',
-        'Team: Schedule architecture review'
-      ]
+      notes: 'Discussed project timeline and deliverables. Assigned initial tasks.',
+      recordings: ['recording_1.mp4']
     }
   ]);
 
-  React.useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isRecording) {
-      interval = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
-      }, 1000);
+  const [showNewMeetingForm, setShowNewMeetingForm] = useState(false);
+  const [isInCall, setIsInCall] = useState(false);
+  const [callType, setCallType] = useState<'video' | 'audio'>('video');
+  const [isMicOn, setIsMicOn] = useState(true);
+  const [isVideoOn, setIsVideoOn] = useState(true);
+
+  const [newMeeting, setNewMeeting] = useState({
+    title: '',
+    participantEmails: '',
+    date: '',
+    time: '',
+    duration: 30,
+    type: 'video' as 'video' | 'audio'
+  });
+
+  const scheduleMeeting = () => {
+    if (!newMeeting.title || !newMeeting.participantEmails) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
     }
-    return () => clearInterval(interval);
-  }, [isRecording]);
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const startRecording = () => {
-    setIsRecording(true);
-    setRecordingTime(0);
-  };
-
-  const stopRecording = () => {
-    setIsRecording(false);
-    
-    // Create new meeting record
-    const newMeeting: MeetingNote = {
+    const emails = newMeeting.participantEmails.split(',').map(email => email.trim());
+    const meeting: Meeting = {
       id: Date.now().toString(),
-      title: currentMeeting.title || `Meeting ${new Date().toLocaleDateString()}`,
-      date: new Date(),
-      duration: recordingTime,
-      participants: currentMeeting.participants || ['You'],
-      type: currentMeeting.type || 'video',
-      status: 'processing'
+      title: newMeeting.title,
+      participants: emails.map(email => email.split('@')[0]),
+      participantEmails: emails,
+      date: newMeeting.date,
+      time: newMeeting.time,
+      duration: newMeeting.duration,
+      type: newMeeting.type,
+      status: 'scheduled'
     };
 
-    setPreviousMeetings(prev => [newMeeting, ...prev]);
-    
-    // Simulate AI processing
-    setTimeout(() => {
-      setPreviousMeetings(prev => prev.map(meeting => 
-        meeting.id === newMeeting.id 
-          ? {
-              ...meeting,
-              status: 'completed',
-              summary: 'AI-generated summary based on the meeting discussion. Key topics covered include project updates, task assignments, and next steps.',
-              keyPoints: [
-                'Project status updates shared',
-                'Task assignments discussed',
-                'Next sprint planning scheduled'
-              ],
-              actionItems: [
-                'Follow up on discussed items',
-                'Prepare for next meeting',
-                'Update project documentation'
-              ]
-            }
-          : meeting
-      ));
-    }, 5000);
+    setMeetings(prev => [...prev, meeting]);
 
-    setCurrentMeeting({ title: '', participants: ['You'], type: 'video' });
-    setRecordingTime(0);
+    // Send email invitations
+    sendMeetingInvites(meeting);
+
+    setNewMeeting({
+      title: '',
+      participantEmails: '',
+      date: '',
+      time: '',
+      duration: 30,
+      type: 'video'
+    });
+    setShowNewMeetingForm(false);
+
+    toast({
+      title: "Meeting Scheduled! 📅",
+      description: `Meeting invites sent to ${emails.length} participants`,
+    });
   };
 
-  const addParticipant = () => {
-    const participant = prompt('Enter participant name:');
-    if (participant && participant.trim()) {
-      setCurrentMeeting(prev => ({
-        ...prev,
-        participants: [...(prev.participants || []), participant.trim()]
-      }));
-    }
+  const sendMeetingInvites = (meeting: Meeting) => {
+    // Mock email sending
+    console.log('Sending meeting invites:', {
+      title: meeting.title,
+      emails: meeting.participantEmails,
+      meetingLink: `https://${workspace.name}.meet.lovable.app/room/${meeting.id}`,
+      date: meeting.date,
+      time: meeting.time,
+      type: meeting.type
+    });
+  };
+
+  const startCall = (meeting: Meeting) => {
+    setIsInCall(true);
+    setCallType(meeting.type);
+    toast({
+      title: `${meeting.type === 'video' ? 'Video' : 'Audio'} Call Started`,
+      description: "AI is recording notes automatically",
+    });
+  };
+
+  const endCall = () => {
+    setIsInCall(false);
+    toast({
+      title: "Call Ended",
+      description: "Meeting notes have been generated by AI",
+    });
   };
 
   return (
     <div className="space-y-6">
-      {/* Recording Interface */}
+      {/* Active Call Interface */}
+      {isInCall && (
+        <Card className="border-green-500 bg-green-50">
+          <CardContent className="p-6">
+            <div className="text-center space-y-4">
+              <h3 className="text-xl font-bold text-green-800">
+                {callType === 'video' ? 'Video' : 'Audio'} Call in Progress
+              </h3>
+              
+              {callType === 'video' && (
+                <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
+                  <div className="bg-gray-800 rounded-lg aspect-video flex items-center justify-center text-white">
+                    <div className="text-center">
+                      <Video size={24} className="mx-auto mb-2" />
+                      <p className="text-sm">Your Video</p>
+                    </div>
+                  </div>
+                  <div className="bg-gray-700 rounded-lg aspect-video flex items-center justify-center text-white">
+                    <div className="text-center">
+                      <Users size={24} className="mx-auto mb-2" />
+                      <p className="text-sm">Participant</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-center gap-4">
+                <Button
+                  variant={isMicOn ? "default" : "destructive"}
+                  size="sm"
+                  onClick={() => setIsMicOn(!isMicOn)}
+                >
+                  {isMicOn ? <Mic size={16} /> : <MicOff size={16} />}
+                </Button>
+                
+                {callType === 'video' && (
+                  <Button
+                    variant={isVideoOn ? "default" : "destructive"}
+                    size="sm"
+                    onClick={() => setIsVideoOn(!isVideoOn)}
+                  >
+                    {isVideoOn ? <Video size={16} /> : <VideoOff size={16} />}
+                  </Button>
+                )}
+                
+                <Button variant="destructive" onClick={endCall}>
+                  <Phone size={16} className="mr-2" />
+                  End Call
+                </Button>
+              </div>
+              
+              <Badge className="bg-red-500">🔴 AI Recording Notes</Badge>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Schedule New Meeting */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Brain className="text-purple-500" size={24} />
-            AI Meeting Assistant
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="text-blue-500" size={24} />
+              Meeting Scheduler
+            </CardTitle>
+            <Button 
+              onClick={() => setShowNewMeetingForm(true)}
+              className="bg-gradient-to-r from-blue-500 to-purple-500"
+            >
+              Schedule Meeting
+            </Button>
+          </div>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {/* Meeting Setup */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+        {showNewMeetingForm && (
+          <CardContent className="space-y-4">
+            <input
+              type="text"
+              placeholder="Meeting title *"
+              value={newMeeting.title}
+              onChange={(e) => setNewMeeting(prev => ({ ...prev, title: e.target.value }))}
+              className="w-full p-2 border border-gray-300 rounded-md"
+            />
+            
+            <textarea
+              placeholder="Participant emails (comma separated) *"
+              value={newMeeting.participantEmails}
+              onChange={(e) => setNewMeeting(prev => ({ ...prev, participantEmails: e.target.value }))}
+              className="w-full p-2 border border-gray-300 rounded-md"
+              rows={2}
+            />
+            
+            <div className="grid grid-cols-2 gap-4">
               <input
-                type="text"
-                placeholder="Meeting title"
-                value={currentMeeting.title}
-                onChange={(e) => setCurrentMeeting(prev => ({ ...prev, title: e.target.value }))}
-                className="p-2 border rounded"
-                disabled={isRecording}
+                type="date"
+                value={newMeeting.date}
+                onChange={(e) => setNewMeeting(prev => ({ ...prev, date: e.target.value }))}
+                className="p-2 border border-gray-300 rounded-md"
               />
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setCurrentMeeting(prev => ({ ...prev, type: 'video' }))}
-                  className={`flex-1 p-2 rounded border ${
-                    currentMeeting.type === 'video' 
-                      ? 'bg-blue-500 text-white' 
-                      : 'bg-gray-100'
-                  }`}
-                  disabled={isRecording}
+              <input
+                type="time"
+                value={newMeeting.time}
+                onChange={(e) => setNewMeeting(prev => ({ ...prev, time: e.target.value }))}
+                className="p-2 border border-gray-300 rounded-md"
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Duration (minutes)</label>
+                <input
+                  type="number"
+                  min="15"
+                  max="240"
+                  value={newMeeting.duration}
+                  onChange={(e) => setNewMeeting(prev => ({ ...prev, duration: Number(e.target.value) }))}
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Call Type</label>
+                <select
+                  value={newMeeting.type}
+                  onChange={(e) => setNewMeeting(prev => ({ ...prev, type: e.target.value as 'video' | 'audio' }))}
+                  className="w-full p-2 border border-gray-300 rounded-md"
                 >
-                  <Video size={16} className="inline mr-1" />
-                  Video
-                </button>
-                <button
-                  onClick={() => setCurrentMeeting(prev => ({ ...prev, type: 'audio' }))}
-                  className={`flex-1 p-2 rounded border ${
-                    currentMeeting.type === 'audio' 
-                      ? 'bg-blue-500 text-white' 
-                      : 'bg-gray-100'
-                  }`}
-                  disabled={isRecording}
-                >
-                  <Mic size={16} className="inline mr-1" />
-                  Audio
-                </button>
+                  <option value="video">Video Call</option>
+                  <option value="audio">Audio Call</option>
+                </select>
               </div>
             </div>
-
-            {/* Participants */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="font-medium">Participants</h4>
-                <Button size="sm" variant="outline" onClick={addParticipant} disabled={isRecording}>
-                  + Add
-                </Button>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {currentMeeting.participants?.map((participant, index) => (
-                  <Badge key={index} variant="outline">{participant}</Badge>
-                ))}
-              </div>
+            
+            <div className="flex gap-2">
+              <Button onClick={scheduleMeeting}>Schedule & Send Invites</Button>
+              <Button variant="outline" onClick={() => setShowNewMeetingForm(false)}>
+                Cancel
+              </Button>
             </div>
+          </CardContent>
+        )}
+      </Card>
 
-            {/* Recording Controls */}
-            <div className="flex items-center justify-center gap-4 p-6 bg-gray-50 rounded-lg">
-              {!isRecording ? (
-                <Button 
-                  onClick={startRecording}
-                  className="bg-red-500 hover:bg-red-600 text-white px-8 py-3"
-                  disabled={!currentMeeting.title?.trim()}
-                >
-                  <Play size={20} className="mr-2" />
-                  Start Recording
-                </Button>
-              ) : (
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-4 mb-4">
-                    <div className="w-4 h-4 bg-red-500 rounded-full animate-pulse"></div>
-                    <span className="text-2xl font-mono font-bold">{formatTime(recordingTime)}</span>
+      {/* Meetings List */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Meetings & Notes</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {meetings.map(meeting => (
+            <div key={meeting.id} className="border rounded-lg p-4 space-y-3">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h4 className="font-semibold">{meeting.title}</h4>
+                  <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
+                    <span className="flex items-center gap-1">
+                      <Calendar size={14} />
+                      {meeting.date} at {meeting.time}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      {meeting.type === 'video' ? <Video size={14} /> : <Mic size={14} />}
+                      {meeting.type === 'video' ? 'Video' : 'Audio'} ({meeting.duration}min)
+                    </span>
                   </div>
-                  <Button 
-                    onClick={stopRecording}
-                    variant="outline"
-                    className="border-red-500 text-red-500 hover:bg-red-50"
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge 
+                    variant={meeting.status === 'completed' ? 'default' : 
+                            meeting.status === 'ongoing' ? 'destructive' : 'secondary'}
                   >
-                    <Square size={16} className="mr-2" />
-                    Stop Recording
-                  </Button>
+                    {meeting.status}
+                  </Badge>
+                  {meeting.status === 'scheduled' && (
+                    <Button size="sm" onClick={() => startCall(meeting)}>
+                      Join Call
+                    </Button>
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2 text-sm">
+                <Users size={14} />
+                <span>Participants: {meeting.participants.join(', ')}</span>
+              </div>
+              
+              {meeting.participantEmails.length > 0 && (
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <Mail size={14} />
+                  <span>Invited: {meeting.participantEmails.join(', ')}</span>
+                </div>
+              )}
+              
+              {meeting.notes && (
+                <div className="bg-gray-50 p-3 rounded">
+                  <h5 className="font-medium text-sm mb-1">AI Generated Notes:</h5>
+                  <p className="text-sm text-gray-700">{meeting.notes}</p>
+                </div>
+              )}
+              
+              {meeting.recordings && meeting.recordings.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">Recording Available</Badge>
                 </div>
               )}
             </div>
-
-            {isRecording && (
-              <div className="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">
-                <p className="text-sm text-blue-700">
-                  🤖 AI is actively listening and will generate meeting notes, action items, and summary when recording stops.
-                </p>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Previous Meetings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="text-blue-500" size={24} />
-            Meeting History & AI Notes
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {previousMeetings.map(meeting => (
-              <div key={meeting.id} className="border rounded-lg p-4 hover:bg-gray-50">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    {meeting.type === 'video' ? (
-                      <Video size={20} className="text-blue-500" />
-                    ) : (
-                      <Mic size={20} className="text-green-500" />
-                    )}
-                    <div>
-                      <h4 className="font-semibold">{meeting.title}</h4>
-                      <div className="flex items-center gap-4 text-sm text-gray-600">
-                        <span className="flex items-center gap-1">
-                          <Calendar size={12} />
-                          {meeting.date.toLocaleDateString()}
-                        </span>
-                        <span>{meeting.duration} min</span>
-                        <span className="flex items-center gap-1">
-                          <Users size={12} />
-                          {meeting.participants.length} participants
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <Badge 
-                      variant={meeting.status === 'completed' ? 'default' : 'secondary'}
-                      className={meeting.status === 'processing' ? 'animate-pulse' : ''}
-                    >
-                      {meeting.status}
-                    </Badge>
-                    {meeting.status === 'completed' && (
-                      <Button size="sm" variant="outline">
-                        <Download size={14} className="mr-1" />
-                        Export
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                {meeting.status === 'completed' && (
-                  <div className="space-y-3 pt-3 border-t">
-                    {meeting.summary && (
-                      <div>
-                        <h5 className="font-medium text-sm mb-1">AI Summary</h5>
-                        <p className="text-sm text-gray-700 bg-gray-50 p-2 rounded">
-                          {meeting.summary}
-                        </p>
-                      </div>
-                    )}
-
-                    {meeting.keyPoints && meeting.keyPoints.length > 0 && (
-                      <div>
-                        <h5 className="font-medium text-sm mb-1">Key Points</h5>
-                        <ul className="text-sm space-y-1">
-                          {meeting.keyPoints.map((point, index) => (
-                            <li key={index} className="flex items-start gap-2">
-                              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2"></div>
-                              {point}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {meeting.actionItems && meeting.actionItems.length > 0 && (
-                      <div>
-                        <h5 className="font-medium text-sm mb-1">Action Items</h5>
-                        <ul className="text-sm space-y-1">
-                          {meeting.actionItems.map((item, index) => (
-                            <li key={index} className="flex items-start gap-2">
-                              <div className="w-1.5 h-1.5 bg-green-500 rounded-full mt-2"></div>
-                              {item}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {meeting.status === 'processing' && (
-                  <div className="pt-3 border-t">
-                    <div className="flex items-center gap-2 text-sm text-blue-600">
-                      <Brain className="animate-spin" size={16} />
-                      AI is processing the recording and generating meeting notes...
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {previousMeetings.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                <FileText size={48} className="mx-auto mb-4 opacity-50" />
-                <p>No meeting recordings yet.</p>
-                <p className="text-sm">Start your first AI-assisted meeting above!</p>
-              </div>
-            )}
-          </div>
+          ))}
         </CardContent>
       </Card>
     </div>

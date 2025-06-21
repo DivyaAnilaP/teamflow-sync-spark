@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -19,23 +18,37 @@ const App = () => {
   useEffect(() => {
     // Check if user is already logged in
     const savedUser = localStorage.getItem('user');
+    const savedWorkspace = localStorage.getItem('selectedWorkspace');
+    
     if (savedUser) {
       setUser(JSON.parse(savedUser));
+    }
+    
+    if (savedWorkspace && savedUser) {
+      setSelectedWorkspace(JSON.parse(savedWorkspace));
     }
   }, []);
 
   const handleLogin = (userData: any) => {
     setUser(userData);
+    localStorage.setItem('user', JSON.stringify(userData));
   };
 
   const handleLogout = () => {
     localStorage.removeItem('user');
+    localStorage.removeItem('selectedWorkspace');
     setUser(null);
     setSelectedWorkspace(null);
   };
 
   const handleSelectWorkspace = (workspace: any) => {
     setSelectedWorkspace(workspace);
+    localStorage.setItem('selectedWorkspace', JSON.stringify(workspace));
+  };
+
+  const handleLeaveWorkspace = () => {
+    localStorage.removeItem('selectedWorkspace');
+    setSelectedWorkspace(null);
   };
 
   // If not logged in, show auth page
@@ -83,7 +96,7 @@ const App = () => {
                   user={user} 
                   workspace={selectedWorkspace} 
                   onLogout={handleLogout}
-                  onLeaveWorkspace={() => setSelectedWorkspace(null)}
+                  onLeaveWorkspace={handleLeaveWorkspace}
                 />
               } 
             />
